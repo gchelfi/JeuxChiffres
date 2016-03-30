@@ -5,89 +5,89 @@
 
 static int N = 0;
 static int p = 0;
-static int Reserve[]={1,2,3,4,5,6,7,8,9,10,25,50,75,100};
-static char operators[]={'+','-','*','/'};
+static int Reserve[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 25, 50, 75, 100};
+static char operators[] = {'+', '-', '*', '/'};
 
 
-typedef struct Noeud{
-	int result;
-	char operator;
-	struct Noeud * Fils_Gauche, * Fils_Droit;
-} Link;
+typedef struct Node{
+  int result;
+  char operator;
+  struct Node * left, * right;
+} Tree;
 
-static Link * Plus_Proche = NULL;
+static Tree * closest = NULL;
 
-static int *
-acquire_file(char * filename){
+static int * acquire_file(char * filename){
 	unsigned int i;
-	int * Nombres;
-	FILE * file = fopen(filename,"r");
+	int * numbers;
+	FILE * file = fopen(filename, "r");
 
 	if (!file){
 		printf("fichier inexistant\n");
 		exit(1);
 	}
 
-	fscanf(file,"%d %d",&N,&p);
-	Nombres = malloc(p*sizeof(int));
+	fscanf(file, "%d %d", &N, &p);
+	numbers = malloc(p * sizeof(int));
 
-	for( i = 0; i < p; ++i)
-	{
-		fscanf(file,"%d", &Nombres[i]);
+	for(i = 0; i < p; ++i){
+		fscanf(file, "%d", &numbers[i]);
 
-		if(!Nombres[i])
-			Nombres[i] = Reserve[random()%14];
+		if(!numbers[i]){
+			numbers[i] = Reserve[random()%14];
+    }
 	}
 
 	fclose(file);
-	return Nombres;
+	return numbers;
 }
 
-static int *
-acquire_command(int l, char * *Ligne){
-	int * Nombres;
+static int * acquire_command(int l, char ** Ligne){
+	int * numbers;
 	unsigned int i;
 
 	N = atoi(Ligne[1]);
 	p = atoi(Ligne[2]);
-	Nombres = malloc(p*sizeof(int));
+	numbers = malloc(p * sizeof(int));
 
-	for(i = 3; (i < l) & (i < p+3); ++i)
-		Nombres[i-3] = atoi(Ligne[i]);
+	for(i = 3; (i < l) & (i < p + 3); ++i)
+		numbers[i - 3] = atoi(Ligne[i]);
 
-	while(i < p+3)
+	while(i < p + 3)
 	{
-		Nombres[i-3] = Reserve[random()%14];
+		numbers[i - 3] = Reserve[random() % 14];
 		++i;
 	}
 
-	return Nombres;
+	return numbers;
 }
 
-static int
-eval(Link * P1, Link * P2, char operator){
+static int eval(Tree * P1, Tree * P2, char operator){
 	int result = 0;
 	int p1, p2;
 
 	if (P1 && P2){
 		p1 = P1->result;
 		p2 = P2->result;
-	} else return -1;
+	}
+  else {
+    return -1;
+  }
 
 	switch (operator){
 		case '+':
-			result = p1+p2;
+			result = p1 + p2;
 			break;
 		case '*':
-			result = p1*p2;
+			result = p1 * p2;
 			break;
 		case '-':
-			if (p1>p2) result = p1-p2;
-			else result = p2-p1;
+			if (p1 > p2) result = p1 - p2;
+			else result = p2 - p1;
 			break;
 		case '/':
-			if (p1>p2) result = p1/p2;
-			else result = p2/p1;
+			if (p1 > p2) result = p1 / p2;
+			else result = p2 / p1;
 			break;
 		default :
 			break;
@@ -96,71 +96,67 @@ eval(Link * P1, Link * P2, char operator){
 	return result;
 }
 
-static Link *
-new_link(int result, char operateur){
-	Link * root;
+static Tree * new_link(int result, char operateur){
+	Tree * root;
 
-	root = malloc(sizeof(Link));
+	root = malloc(sizeof(Tree));
 	root->result = result;
 	root->operator = operateur;
-	root->Fils_Gauche = NULL;
-	root->Fils_Droit = NULL;
+	root->left = NULL;
+	root->right = NULL;
 
 	return root;
 }
 
-static void
-copy(Link * Arbre1,Link ** Arbre2){
+static void copy(Tree * Arbre1, Tree ** Arbre2){
 	if(Arbre1 == *Arbre2) return;
 
 	if(Arbre1){
 		if(!*Arbre2){
-			*Arbre2 = new_link(Arbre1->result,Arbre1->operator);
-			copy(Arbre1->Fils_Gauche,&((*Arbre2)->Fils_Gauche));
-			copy(Arbre1->Fils_Droit,&((*Arbre2)->Fils_Droit));
+			*Arbre2 = new_link(Arbre1->result, Arbre1->operator);
+			copy(Arbre1->left, &((*Arbre2)->left));
+			copy(Arbre1->right, &((*Arbre2)->right));
 		}
 		else {
-			(*Arbre2)->result=Arbre1->result;
-			(*Arbre2)->operator=Arbre1->operator;
-			copy(Arbre1->Fils_Gauche,&((*Arbre2)->Fils_Gauche));
-			copy(Arbre1->Fils_Droit,&((*Arbre2)->Fils_Droit));
+			(*Arbre2)->result = Arbre1->result;
+			(*Arbre2)->operator = Arbre1->operator;
+			copy(Arbre1->left, &((*Arbre2)->left));
+			copy(Arbre1->right, &((*Arbre2)->right));
 		}
 	}
 }
 
-static void
-compare(Link * Arbre){
-	if(Arbre)
-		if(abs(Arbre->result - N) < abs(Plus_Proche->result - N) || Plus_Proche->result < 0)
-			copy(Arbre,&Plus_Proche);
+static void compare(Tree * Arbre){
+	if(Arbre){
+		if(abs(Arbre->result - N) < abs(closest->result - N) || closest->result < 0){
+			copy(Arbre, &closest);
+    }
+  }
 }
 
-static Link *
-fusion(Link * P1,Link * P2, char operateur){
-	Link * link = new_link( eval(P1, P2, operateur), operateur);
+static Tree * fusion(Tree * P1, Tree * P2, char operateur){
+	Tree * link = new_link(eval(P1, P2, operateur), operateur);
 
-	link->Fils_Gauche = P1;
-	link->Fils_Droit = P2;
+	link->left = P1;
+	link->right = P2;
 
 	return link;
 }
 
-static Link **
-prepare(Link ** arbres,int i,int j, int * taille, char operateur){
-	Link * tmp;
+static Tree ** prepare(Tree ** arbres, int i, int j, int * taille, char operateur){
+	Tree * tmp;
 
 	tmp = arbres[i];
 	arbres[j] = fusion(arbres[i], arbres[j], operateur);
 	arbres[i] = arbres[*taille-1];
-	arbres[*taille-1] = tmp;
+	arbres[*taille - 1] = tmp;
 	--(*taille);
 
 	return arbres;
 }
 
-static Link * *
-Defaire(Link * *arbres,int i,int j,int *taille){
-	Link * tmp;
+static Tree ** Defaire(Tree ** arbres, int i, int j, int * taille){
+	Tree * tmp;
 
 	tmp = arbres[*taille];
 	arbres[*taille] = arbres[i];
@@ -168,33 +164,29 @@ Defaire(Link * *arbres,int i,int j,int *taille){
 	tmp = arbres[j];
 
 	if(tmp){
-		arbres[j] = tmp->Fils_Droit;
+		arbres[j] = tmp->right;
 		++(*taille);
 	}
 
 	return arbres;
 }
 
-static int
-cover(Link * *arbres, int taille){
-	int i,j,k,resultat;
-	int p1,p2;
-	resultat=-1;
-	for( i = 0; i < taille; ++i)
-	{
-		for( j = 0; j < i; ++j)
-		{
-			for( k = 0; k < 3; ++k)
-			{
+static int cover(Tree ** arbres, int taille){
+	int i, j, k, resultat;
+	int p1, p2;
+	resultat = -1;
+	for(i = 0; i < taille; ++i){
+		for(j = 0; j < i; ++j){
+			for(k = 0; k < 3; ++k){
 				compare(arbres[i]);
 				compare(arbres[j]);
-				prepare(arbres,i,j,&taille,operators[k]);
+				prepare(arbres, i, j, &taille, operators[k]);
 				compare(arbres[j]);
-				resultat = Plus_Proche->result;
+				resultat = closest->result;
 
 				if(resultat == N)
 					break;
-				cover(arbres,taille);
+				cover(arbres, taille);
 				Defaire(arbres, i, j, &taille);
 			}
 
@@ -203,29 +195,29 @@ cover(Link * *arbres, int taille){
 				p2=arbres[j]->result;
 			}
 
-			if(resultat != N && p1 && p2 && !(p1%p2 && p2%p1)){
+			if(resultat != N && p1 && p2 && !(p1 % p2 && p2 % p1)){
 				compare(arbres[i]);
 				compare(arbres[j]);
-				prepare(arbres,i,j,&taille,operators[3]);
+				prepare(arbres, i, j, &taille, operators[3]);
 				compare(arbres[j]);
-				resultat=Plus_Proche->result;
+				resultat=closest->result;
 
 				if(resultat == N)
 					break;
-				cover(arbres,taille);
+				cover(arbres, taille);
 				Defaire(arbres, i, j, &taille);
 			}
 
 			compare(arbres[i]);
 			compare(arbres[j]);
-			resultat = Plus_Proche->result;
+			resultat = closest->result;
 
 			if(resultat == N)
 				break;
 
 		}
 		compare(arbres[i]);
-		resultat = Plus_Proche->result;
+		resultat = closest->result;
 
 		if(resultat == N)
 			break;
@@ -234,62 +226,60 @@ cover(Link * *arbres, int taille){
 	return resultat;
 }
 
-static Link * *
-transform(int * nombres){
-	Link * *Arbres;
+static Tree ** transform(int * nombres){
+	Tree ** Arbres;
 	unsigned int i;
 
-	Arbres = malloc(sizeof(Link *)*p);
-	for( i = 0; i < p; ++i)
-		Arbres[i] = new_link(nombres[i],'o');
+	Arbres = malloc(sizeof(Tree *) * p);
+	for(i = 0; i < p; ++i)
+		Arbres[i] = new_link(nombres[i], 'o');
 
 	return Arbres;
 }
 
-static void
-print(Link * Arbre){
+static void print(Tree * Arbre){
 	if(Arbre){
 		if(Arbre->operator != 'o'){
 			if(Arbre->operator == '*'){
-				print(Arbre->Fils_Gauche);
-				printf(" %c ",Arbre->operator);
-				print(Arbre->Fils_Droit);
+				print(Arbre->left);
+				printf(" %c ", Arbre->operator);
+				print(Arbre->right);
 			}
 			else {
 				printf("(");
 
-				if(Arbre->Fils_Gauche->result > Arbre->Fils_Droit->result) {
-					print(Arbre->Fils_Gauche);
-					printf(" %c ",Arbre->operator);
-					print(Arbre->Fils_Droit);
+				if(Arbre->left->result > Arbre->right->result) {
+					print(Arbre->left);
+					printf(" %c ", Arbre->operator);
+					print(Arbre->right);
 				}
 				else {
-					print(Arbre->Fils_Droit);
-					printf(" %c ",Arbre->operator);
-					print(Arbre->Fils_Gauche);
+					print(Arbre->right);
+					printf(" %c ", Arbre->operator);
+					print(Arbre->left);
 				}
 
 				printf(")");
 			}
 		}
 		else {
-			printf("%d",Arbre->result);
+			printf("%d", Arbre->result);
 		}
 	}
 }
 
 
-int main(int argc,char * argv[]){
-	static int * Nombres;
+int main(int argc, char * argv[]){
+	static int * numbers;
 	unsigned int i;
-	Link * *Arbres;
+	Tree ** Arbres;
 
-	Plus_Proche = new_link(-1,'f');
+	closest = new_link(-1, 'f');
 	srand(time(NULL));
 
 	//Usage
 	if(argc < 2) {
-		printf("Usage: %s filename or %s N p [Int_list]\n",argv[0],argv[0]);
+		printf("Usage: %s filename or %s N p [Int_list]\n", argv[0], argv[0]);
 		return 0;
 	}
 
@@ -297,27 +287,26 @@ int main(int argc,char * argv[]){
 
 	//From a file:
 	if (argc == 2) {
-		Nombres = acquire_file(argv[1]);
+		numbers = acquire_file(argv[1]);
 	}
 
 	//From the CL:
 	if (argc > 2) {
-		Nombres = acquire_command(argc,argv);
+		numbers = acquire_command(argc,argv);
 	}
 
 	//End of acquisition
-
-	Arbres = transform(Nombres);
-	cover(Arbres,p);
-	printf("Target: %d\n",N);
+	Arbres = transform(numbers);
+	cover(Arbres, p);
+	printf("Target: %d\n", N);
 	printf("Available numbers: ");
 
-	for( i = 0; i < p; ++i)
-		printf("%d ", Nombres[i]);
-
+	for(i = 0; i < p; ++i){
+		printf("%d ", numbers[i]);
+  }
 	printf("\nResult:\n");
-	print(Plus_Proche);
-	printf(" = %d\n",Plus_Proche->result);
+	print(closest);
+	printf(" = %d\n", closest->result);
 
 	return 0;
 }
