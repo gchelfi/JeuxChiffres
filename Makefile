@@ -1,0 +1,3 @@
+TARGET=JeuxChiffresExact
+
+all: $(TARGET)
