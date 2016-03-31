@@ -5,7 +5,7 @@
 
 static int N = 0;
 static int p = 0;
-static int Reserve[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 25, 50, 75, 100};
+static int Defaults[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 25, 50, 75, 100};
 static char operators[] = {'+', '-', '*', '/'};
 
 
@@ -13,28 +13,27 @@ typedef struct Node{
   int result;
   char operator;
   struct Node * left, * right;
-} Tree;
+} Tree; // The type of an expression
 
-static Tree * closest = NULL;
+static Tree * closest = NULL; // Best solution so far
 
-static int * acquire_file(char * filename){
-	unsigned int i;
+static int * acquire_from_file(char * filename){
 	int * numbers;
 	FILE * file = fopen(filename, "r");
 
 	if (!file){
-		printf("fichier inexistant\n");
+		printf("File not found: %s\n", filename);
 		exit(1);
 	}
 
 	fscanf(file, "%d %d", &N, &p);
 	numbers = malloc(p * sizeof(int));
 
-	for(i = 0; i < p; ++i){
+	for(unsigned int i = 0; i < p; ++i){
 		fscanf(file, "%d", &numbers[i]);
 
 		if(!numbers[i]){
-			numbers[i] = Reserve[random()%14];
+			numbers[i] = Defaults[random() % 14];
     }
 	}
 
@@ -42,20 +41,20 @@ static int * acquire_file(char * filename){
 	return numbers;
 }
 
-static int * acquire_command(int l, char ** Ligne){
+static int * acquire_from_command(int l, char ** line){
 	int * numbers;
 	unsigned int i;
 
-	N = atoi(Ligne[1]);
-	p = atoi(Ligne[2]);
+	N = atoi(line[1]);
+	p = atoi(line[2]);
 	numbers = malloc(p * sizeof(int));
 
 	for(i = 3; (i < l) & (i < p + 3); ++i)
-		numbers[i - 3] = atoi(Ligne[i]);
+		numbers[i - 3] = atoi(line[i]);
 
 	while(i < p + 3)
 	{
-		numbers[i - 3] = Reserve[random() % 14];
+		numbers[i - 3] = Defaults[random() % 14];
 		++i;
 	}
 
@@ -96,46 +95,42 @@ static int eval(Tree * P1, Tree * P2, char operator){
 	return result;
 }
 
-static Tree * new_link(int result, char operateur){
-	Tree * root;
-
-	root = malloc(sizeof(Tree));
+static Tree * new_tree(int result, char operator){
+	Tree * root = malloc(sizeof(Tree));
 	root->result = result;
-	root->operator = operateur;
+	root->operator = operator;
 	root->left = NULL;
 	root->right = NULL;
 
 	return root;
 }
 
-static void copy(Tree * Arbre1, Tree ** Arbre2){
-	if(Arbre1 == *Arbre2) return;
+static void write(Tree * from, Tree ** to){
+	if(from == *to) return;
 
-	if(Arbre1){
-		if(!*Arbre2){
-			*Arbre2 = new_link(Arbre1->result, Arbre1->operator);
-			copy(Arbre1->left, &((*Arbre2)->left));
-			copy(Arbre1->right, &((*Arbre2)->right));
+	if(from){
+		if(!*to){
+			*to = new_tree(from->result, from->operator);
 		}
 		else {
-			(*Arbre2)->result = Arbre1->result;
-			(*Arbre2)->operator = Arbre1->operator;
-			copy(Arbre1->left, &((*Arbre2)->left));
-			copy(Arbre1->right, &((*Arbre2)->right));
-		}
+			(*to)->result = from->result;
+			(*to)->operator = from->operator;
+    }
+			write(from->left, &((*to)->left));
+			write(from->right, &((*to)->right));
 	}
 }
 
-static void compare(Tree * Arbre){
-	if(Arbre){
-		if(abs(Arbre->result - N) < abs(closest->result - N) || closest->result < 0){
-			copy(Arbre, &closest);
+static void compare_with_closest(Tree * candidate){
+	if(candidate){
+		if(abs(candidate->result - N) < abs(closest->result - N) || closest->result < 0){
+			write(candidate, &closest);
     }
   }
 }
 
 static Tree * fusion(Tree * P1, Tree * P2, char operateur){
-	Tree * link = new_link(eval(P1, P2, operateur), operateur);
+	Tree * link = new_tree(eval(P1, P2, operateur), operateur);
 
 	link->left = P1;
 	link->right = P2;
@@ -155,7 +150,7 @@ static Tree ** prepare(Tree ** arbres, int i, int j, int * taille, char operateu
 	return arbres;
 }
 
-static Tree ** Defaire(Tree ** arbres, int i, int j, int * taille){
+static Tree ** backtrack(Tree ** arbres, int i, int j, int * taille){
 	Tree * tmp;
 
 	tmp = arbres[*taille];
@@ -171,6 +166,10 @@ static Tree ** Defaire(Tree ** arbres, int i, int j, int * taille){
 	return arbres;
 }
 
+// Main part of the algorithm: takes an initial list of candidates, pick any two
+// elements, combine them. Process recursively while remembering the best
+// combination so far. As soon as a combination has been solved, deconstruct it
+// and build the next one.
 static int cover(Tree ** arbres, int taille){
 	int i, j, k, resultat;
 	int p1, p2;
@@ -178,16 +177,16 @@ static int cover(Tree ** arbres, int taille){
 	for(i = 0; i < taille; ++i){
 		for(j = 0; j < i; ++j){
 			for(k = 0; k < 3; ++k){
-				compare(arbres[i]);
-				compare(arbres[j]);
+				compare_with_closest(arbres[i]);
+				compare_with_closest(arbres[j]);
 				prepare(arbres, i, j, &taille, operators[k]);
-				compare(arbres[j]);
+				compare_with_closest(arbres[j]);
 				resultat = closest->result;
 
 				if(resultat == N)
 					break;
 				cover(arbres, taille);
-				Defaire(arbres, i, j, &taille);
+				backtrack(arbres, i, j, &taille);
 			}
 
 			if(arbres[i] && arbres[j]){
@@ -196,27 +195,27 @@ static int cover(Tree ** arbres, int taille){
 			}
 
 			if(resultat != N && p1 && p2 && !(p1 % p2 && p2 % p1)){
-				compare(arbres[i]);
-				compare(arbres[j]);
+				compare_with_closest(arbres[i]);
+				compare_with_closest(arbres[j]);
 				prepare(arbres, i, j, &taille, operators[3]);
-				compare(arbres[j]);
-				resultat=closest->result;
+				compare_with_closest(arbres[j]);
+				resultat = closest->result;
 
 				if(resultat == N)
 					break;
 				cover(arbres, taille);
-				Defaire(arbres, i, j, &taille);
+				backtrack(arbres, i, j, &taille);
 			}
 
-			compare(arbres[i]);
-			compare(arbres[j]);
+			compare_with_closest(arbres[i]);
+			compare_with_closest(arbres[j]);
 			resultat = closest->result;
 
 			if(resultat == N)
 				break;
 
 		}
-		compare(arbres[i]);
+		compare_with_closest(arbres[i]);
 		resultat = closest->result;
 
 		if(resultat == N)
@@ -232,38 +231,38 @@ static Tree ** transform(int * nombres){
 
 	Arbres = malloc(sizeof(Tree *) * p);
 	for(i = 0; i < p; ++i)
-		Arbres[i] = new_link(nombres[i], 'o');
+		Arbres[i] = new_tree(nombres[i], 'o');
 
 	return Arbres;
 }
 
-static void print(Tree * Arbre){
-	if(Arbre){
-		if(Arbre->operator != 'o'){
-			if(Arbre->operator == '*'){
-				print(Arbre->left);
-				printf(" %c ", Arbre->operator);
-				print(Arbre->right);
+static void pretty_print(Tree * tree){
+	if(tree){
+		if(tree->operator != 'o'){
+			if(tree->operator == '*'){
+				pretty_print(tree->left);
+				printf(" %c ", tree->operator);
+				pretty_print(tree->right);
 			}
 			else {
 				printf("(");
 
-				if(Arbre->left->result > Arbre->right->result) {
-					print(Arbre->left);
-					printf(" %c ", Arbre->operator);
-					print(Arbre->right);
+				if(tree->left->result > tree->right->result) {
+					pretty_print(tree->left);
+					printf(" %c ", tree->operator);
+					pretty_print(tree->right);
 				}
 				else {
-					print(Arbre->right);
-					printf(" %c ", Arbre->operator);
-					print(Arbre->left);
+					pretty_print(tree->right);
+					printf(" %c ", tree->operator);
+					pretty_print(tree->left);
 				}
 
 				printf(")");
 			}
 		}
 		else {
-			printf("%d", Arbre->result);
+			printf("%d", tree->result);
 		}
 	}
 }
@@ -274,7 +273,7 @@ int main(int argc, char * argv[]){
 	unsigned int i;
 	Tree ** Arbres;
 
-	closest = new_link(-1, 'f');
+	closest = new_tree(-1, 'f');
 	srand(time(NULL));
 
 	//Usage
@@ -287,12 +286,12 @@ int main(int argc, char * argv[]){
 
 	//From a file:
 	if (argc == 2) {
-		numbers = acquire_file(argv[1]);
+		numbers = acquire_from_file(argv[1]);
 	}
 
 	//From the CL:
 	if (argc > 2) {
-		numbers = acquire_command(argc,argv);
+		numbers = acquire_from_command(argc,argv);
 	}
 
 	//End of acquisition
@@ -305,7 +304,7 @@ int main(int argc, char * argv[]){
 		printf("%d ", numbers[i]);
   }
 	printf("\nResult:\n");
-	print(closest);
+	pretty_print(closest);
 	printf(" = %d\n", closest->result);
 
 	return 0;
